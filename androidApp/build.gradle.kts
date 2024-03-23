@@ -48,7 +48,5 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.play.services.maps)
     implementation(libs.play.services.location)
-    implementation (libs.accompanist.permissions)
-
-    debugImplementation(libs.compose.ui.tooling)
+    implementation(libs.accompanist.permissions)
 }

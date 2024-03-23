@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.kotlinCocoapods)
     alias(libs.plugins.androidLibrary)
+    id("kotlin-parcelize")
 }
 
 kotlin {
@@ -40,19 +41,22 @@ kotlin {
             isStatic = true
         }
     }
-    
+
     sourceSets {
-        commonMain.dependencies {
-            implementation(libs.ktor.client.core)
-            implementation(libs.ktor.client.json)
-            implementation(libs.ktor.client.logging)
-            implementation(libs.kotlinx.serialization.json)
-            implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.google.maps.services)
-            implementation(libs.play.services.maps)
+        val commonMain by getting {
+            dependencies {
+                implementation(libs.ktor.client.core)
+                implementation(libs.ktor.client.json)
+                implementation(libs.ktor.client.logging)
+                implementation(libs.kotlinx.serialization.json)
+                implementation(libs.kotlinx.coroutines.core)
+            }
         }
-        commonTest.dependencies {
-            implementation(libs.kotlin.test)
+        val iosMain by creating {
+            dependsOn(commonMain)
+            dependencies {
+                // iOS-specific dependencies
+            }
         }
     }
     task("testClasses")
