@@ -43,9 +43,12 @@ dependencies {
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
+    implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.activity.compose)
-    debugImplementation(libs.compose.ui.tooling)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.play.services.maps)
     implementation(libs.play.services.location)
-    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation (libs.accompanist.permissions)
+
+    debugImplementation(libs.compose.ui.tooling)
 }
