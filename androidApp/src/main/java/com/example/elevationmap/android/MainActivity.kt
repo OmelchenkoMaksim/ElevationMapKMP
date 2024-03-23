@@ -1,8 +1,6 @@
 package com.example.elevationmap.android
 
 import android.content.Context
-import android.content.pm.PackageManager
-import android.location.Location
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -26,7 +24,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle.Event.ON_CREATE
 import androidx.lifecycle.Lifecycle.Event.ON_DESTROY
 import androidx.lifecycle.Lifecycle.Event.ON_PAUSE
@@ -34,23 +31,22 @@ import androidx.lifecycle.Lifecycle.Event.ON_RESUME
 import androidx.lifecycle.Lifecycle.Event.ON_START
 import androidx.lifecycle.Lifecycle.Event.ON_STOP
 import androidx.lifecycle.LifecycleEventObserver
+import com.example.elevationmap.ContextShared
+import com.example.elevationmap.FusedLocationProviderClientShared
+import com.example.elevationmap.MapUiSettings
+import com.example.elevationmap.PermissionStateShared
+import com.example.elevationmap.findMe
+import com.example.elevationmap.findMyLocation
+import com.example.elevationmap.handleLocationPermission
+import com.example.elevationmap.setupMapUI
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionState
-import com.google.accompanist.permissions.PermissionStatus
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
-import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.MapView
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.tasks.Task
-import kotlinx.coroutines.CancellableContinuation
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 
 class MainActivity : ComponentActivity() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -125,7 +121,10 @@ private fun MapViewContainer(
     LaunchedEffect(mapUiSettings.value.isFindMeButtonClicked) {
         if (mapUiSettings.value.isFindMeButtonClicked) {
             googleMapState.value?.let { googleMap: GoogleMap ->
-                findMyLocation(googleMap, fusedLocationClient, context)
+                findMyLocation(
+                    googleMap, FusedLocationProviderClientSharedAdapter(fusedLocationClient),
+                    ContextSharedAdapter(context)
+                )
                 mapUiSettings.value = mapUiSettings.value.copy(isFindMeButtonClicked = false)
             }
         }
@@ -152,22 +151,6 @@ private fun initializeMap(
     }
 }
 
-private suspend fun enableMyLocation(
-    map: GoogleMap,
-    fusedLocationClient: FusedLocationProviderClient,
-    context: Context
-) {
-    if (ContextCompat.checkSelfPermission(
-            context, android.Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-    ) {
-        getLastKnownLocation(fusedLocationClient, context)?.let { location: Location ->
-            map.isMyLocationEnabled = true
-            val latLng = LatLng(location.latitude, location.longitude)
-            map.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoomRate))
-        }
-    }
-}
 
 @OptIn(ExperimentalPermissionsApi::class)
 private fun setupMap(
@@ -177,61 +160,14 @@ private fun setupMap(
     context: Context
 ) {
     setupMapUI(map)
-    handleLocationPermission(map, locationPermissionState, fusedLocationProviderClient, context)
+    handleLocationPermission(
+        map,
+        PermissionStateSharedAdapter(locationPermissionState),
+        FusedLocationProviderClientSharedAdapter(fusedLocationProviderClient),
+        ContextSharedAdapter(context)
+    )
 }
 
-private fun setupMapUI(map: GoogleMap) {
-    map.uiSettings.isZoomControlsEnabled = true
-    map.moveCamera(CameraUpdateFactory.newLatLngZoom(moscowLatLng, zoomRate))
-    map.mapType = GoogleMap.MAP_TYPE_TERRAIN
-}
-
-@OptIn(ExperimentalPermissionsApi::class)
-private fun handleLocationPermission(
-    map: GoogleMap,
-    locationPermissionState: PermissionState,
-    fusedLocationProviderClient: FusedLocationProviderClient,
-    context: Context
-) {
-    when (locationPermissionState.status) {
-        PermissionStatus.Granted ->
-            CoroutineScope(Dispatchers.Main).launch {
-                enableMyLocation(map, fusedLocationProviderClient, context)
-            }
-
-        is PermissionStatus.Denied ->
-            locationPermissionState.launchPermissionRequest()
-    }
-}
-
-private suspend fun findMyLocation(
-    map: GoogleMap,
-    fusedLocationClient: FusedLocationProviderClient,
-    context: Context
-) {
-    getLastKnownLocation(fusedLocationClient, context)?.let { location: Location ->
-        val latLng = LatLng(location.latitude, location.longitude)
-        map.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoomRate))
-    }
-}
-
-
-@OptIn(ExperimentalCoroutinesApi::class)
-private suspend fun getLastKnownLocation(
-    fusedLocationClient: FusedLocationProviderClient,
-    context: Context
-): Location? =
-    if (ContextCompat.checkSelfPermission(
-            context, android.Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-    ) {
-        suspendCancellableCoroutine { continuation: CancellableContinuation<Location?> ->
-            fusedLocationClient.lastLocation
-                .addOnCompleteListener { locationTask: Task<Location> ->
-                    continuation.resume(locationTask.result, null)
-                }
-        }
-    } else null
 
 @Composable
 fun rememberMapViewWithLifecycle(): MapView {
@@ -264,10 +200,14 @@ fun rememberMapLifecycleObserver(mapView: MapView): LifecycleEventObserver =
         }
     }
 
-const val zoomRate = 15f
-const val findMe = "Найти меня"
-val moscowLatLng = LatLng(55.7558, 37.6176)
 
-data class MapUiSettings(
-    val isFindMeButtonClicked: Boolean = false
-)
+@OptIn(ExperimentalPermissionsApi::class)
+class PermissionStateSharedAdapter(
+    private val permissionState: PermissionState
+) : PermissionStateShared, PermissionState by permissionState
+
+class FusedLocationProviderClientSharedAdapter(
+    private val fusedLocationProviderClient: FusedLocationProviderClient
+) : FusedLocationProviderClientShared, FusedLocationProviderClient by fusedLocationProviderClient
+
+class ContextSharedAdapter(override val context: Context) : ContextShared

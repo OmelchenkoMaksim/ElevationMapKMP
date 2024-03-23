@@ -1,6 +1,6 @@
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.kotlinCocoapods)
+//    alias(libs.plugins.kotlinCocoapods)
     alias(libs.plugins.androidLibrary)
     id("kotlin-parcelize")
 }
@@ -13,36 +13,40 @@ kotlin {
             }
         }
     }
-    iosX64()
-    iosArm64()
-    iosSimulatorArm64()
-
-    val onPhone = listOf(
-        iosArm64(),
-        iosX64()
-    )
-    val onSimulator = listOf(
-        iosSimulatorArm64()
-    )
-    val iosTargets = onPhone + onSimulator
-    iosTargets.forEach { target ->
-        target.binaries.framework {
-            baseName = "ElevationMapShared"
-        }
-    }
-    cocoapods {
-        summary = "ElevationMap Shared Module for interacting with Google Maps and Elevation APIs"
-        homepage = "https://github.com/Omelchenko/ElevationMap"
-        version = "1.0"
-        ios.deploymentTarget = "13.0"
-        podfile = project.file("../iosApp/Podfile")
-        framework {
-            baseName = "ElevationMapShared"
-            isStatic = true
-        }
-    }
+//    iosX64()
+//    iosArm64()
+//    iosSimulatorArm64()
+//
+//    val onPhone = listOf(
+//        iosArm64(),
+//        iosX64()
+//    )
+//    val onSimulator = listOf(
+//        iosSimulatorArm64()
+//    )
+//    val iosTargets = onPhone + onSimulator
+//    iosTargets.forEach { target ->
+//        target.binaries.framework {
+//            baseName = "ElevationMapShared"
+//        }
+//    }
+//    cocoapods {
+//        summary = "ElevationMap Shared Module for interacting with Google Maps and Elevation APIs"
+//        homepage = "https://github.com/Omelchenko/ElevationMap"
+//        version = "1.0"
+//        ios.deploymentTarget = "13.0"
+//        podfile = project.file("../iosApp/Podfile")
+//        framework {
+//            baseName = "ElevationMapShared"
+//            isStatic = true
+//        }
+//    }
 
     sourceSets {
+        all {
+            languageSettings.optIn("kotlin.RequiresOptIn")
+            languageSettings.optIn("kotlin.ExperimentalMultiplatform")
+        }
         val commonMain by getting {
             dependencies {
                 implementation(libs.ktor.client.core)
@@ -52,13 +56,21 @@ kotlin {
                 implementation(libs.kotlinx.coroutines.core)
             }
         }
-        val iosMain by creating {
-            dependsOn(commonMain)
+        val androidMain by getting {
             dependencies {
-                // iOS-specific dependencies
+                implementation(libs.compose.ui)
+                implementation(libs.play.services.maps)
+                implementation(libs.play.services.location)
+                implementation(libs.accompanist.permissions)
             }
         }
+//        val iosMain by creating {
+//            dependsOn(commonMain)
+//            dependencies {
+//            }
+//        }
     }
+
     task("testClasses")
 }
 
