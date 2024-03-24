@@ -1,6 +1,7 @@
 package com.example.elevationmap.android
 
 import android.content.Context
+import android.location.Location
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -32,20 +33,25 @@ import androidx.lifecycle.Lifecycle.Event.ON_START
 import androidx.lifecycle.Lifecycle.Event.ON_STOP
 import androidx.lifecycle.LifecycleEventObserver
 import com.example.elevationmap.ContextShared
-import com.example.elevationmap.FusedLocationProviderClientShared
 import com.example.elevationmap.MapUiSettings
 import com.example.elevationmap.PermissionStateShared
 import com.example.elevationmap.findMe
 import com.example.elevationmap.findMyLocation
+import com.example.elevationmap.getLastKnownLocation
 import com.example.elevationmap.handleLocationPermission
 import com.example.elevationmap.setupMapUI
+import com.example.elevationmap.zoomRate
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionState
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.MapView
+import com.google.android.gms.maps.model.LatLng
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -59,7 +65,7 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.background
             ) {
-                MapScreen(fusedLocationClient)
+                MapScreen()
             }
         }
     }
@@ -67,7 +73,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-fun MapScreen(fusedLocationClient: FusedLocationProviderClient) {
+fun MapScreen() {
     val mapView = rememberMapViewWithLifecycle()
     val googleMapState = remember { mutableStateOf<GoogleMap?>(null) }
     val locationPermissionState = rememberPermissionState(
@@ -81,7 +87,6 @@ fun MapScreen(fusedLocationClient: FusedLocationProviderClient) {
         MapViewContainer(
             mapView = mapView,
             googleMapState = googleMapState,
-            fusedLocationClient = fusedLocationClient,
             locationPermissionState = locationPermissionState,
             mapUiSettings = mapUiSettings
         )
@@ -105,7 +110,6 @@ fun MapScreen(fusedLocationClient: FusedLocationProviderClient) {
 private fun MapViewContainer(
     mapView: MapView,
     googleMapState: MutableState<GoogleMap?>,
-    fusedLocationClient: FusedLocationProviderClient,
     locationPermissionState: PermissionState,
     mapUiSettings: MutableState<MapUiSettings>
 ) {
@@ -114,7 +118,7 @@ private fun MapViewContainer(
 
     AndroidView({ mapView }) { mapViewLocal: MapView ->
         coroutineScope.launch {
-            initializeMap(mapViewLocal, googleMapState, locationPermissionState, fusedLocationClient, context)
+            initializeMap(mapViewLocal, googleMapState, locationPermissionState, context)
         }
     }
 
@@ -122,7 +126,7 @@ private fun MapViewContainer(
         if (mapUiSettings.value.isFindMeButtonClicked) {
             googleMapState.value?.let { googleMap: GoogleMap ->
                 findMyLocation(
-                    googleMap, FusedLocationProviderClientSharedAdapter(fusedLocationClient),
+                    googleMap,
                     ContextSharedAdapter(context)
                 )
                 mapUiSettings.value = mapUiSettings.value.copy(isFindMeButtonClicked = false)
@@ -136,17 +140,16 @@ private fun initializeMap(
     mapView: MapView,
     googleMapState: MutableState<GoogleMap?>,
     locationPermissionState: PermissionState,
-    fusedLocationClient: FusedLocationProviderClient,
     context: Context
 ) {
     if (googleMapState.value == null) {
         mapView.getMapAsync { googleMap: GoogleMap ->
             googleMapState.value = googleMap
-            setupMap(googleMap, locationPermissionState, fusedLocationClient, context)
+            setupMap(googleMap, locationPermissionState, context)
         }
     } else {
         googleMapState.value?.let { googleMap: GoogleMap ->
-            setupMap(googleMap, locationPermissionState, fusedLocationClient, context)
+            setupMap(googleMap, locationPermissionState, context)
         }
     }
 }
@@ -156,16 +159,24 @@ private fun initializeMap(
 private fun setupMap(
     map: GoogleMap,
     locationPermissionState: PermissionState,
-    fusedLocationProviderClient: FusedLocationProviderClient,
     context: Context
 ) {
     setupMapUI(map)
     handleLocationPermission(
         map,
         PermissionStateSharedAdapter(locationPermissionState),
-        FusedLocationProviderClientSharedAdapter(fusedLocationProviderClient),
         ContextSharedAdapter(context)
     )
+
+    map.setOnMyLocationButtonClickListener {
+        CoroutineScope(Dispatchers.Main).launch {
+            getLastKnownLocation(ContextSharedAdapter(context))?.let { location: Location ->
+                val latLng = LatLng(location.latitude, location.longitude)
+                map.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoomRate))
+            }
+        }
+        true
+    }
 }
 
 
@@ -208,6 +219,6 @@ class PermissionStateSharedAdapter(
 
 class FusedLocationProviderClientSharedAdapter(
     private val fusedLocationProviderClient: FusedLocationProviderClient
-) : FusedLocationProviderClientShared, FusedLocationProviderClient by fusedLocationProviderClient
+) : FusedLocationProviderClient by fusedLocationProviderClient
 
 class ContextSharedAdapter(override val context: Context) : ContextShared

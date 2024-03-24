@@ -54,6 +54,7 @@ kotlin {
                 implementation(libs.ktor.client.logging)
                 implementation(libs.kotlinx.serialization.json)
                 implementation(libs.kotlinx.coroutines.core)
+
             }
         }
         val androidMain by getting {
@@ -66,8 +67,15 @@ kotlin {
         }
 //        val iosMain by creating {
 //            dependsOn(commonMain)
-//            dependencies {
-//            }
+//        }
+//        val iosX64Main by getting {
+//            dependsOn(iosMain)
+//        }
+//        val iosArm64Main by getting {
+//            dependsOn(iosMain)
+//        }
+//        val iosSimulatorArm64Main by getting {
+//            dependsOn(iosMain)
 //        }
     }
 

@@ -9,6 +9,8 @@ import android.location.Location
 import androidx.core.content.ContextCompat
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionStatus
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.model.LatLng
@@ -29,11 +31,17 @@ actual interface ContextShared {
     val context: android.content.Context
 }
 
-actual interface FusedLocationProviderClientShared : com.google.android.gms.location.FusedLocationProviderClient
-
 actual typealias LocationShared = Location
 actual typealias GoogleMapShared = GoogleMap
 
+actual fun GoogleMapShared.setCenter(location: LocationShared, animated: Boolean) {
+    val latLng = LatLng(location.latitude, location.longitude)
+    if (animated) {
+        this.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoomRate))
+    } else {
+        this.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoomRate))
+    }
+}
 
 actual fun setupMapUI(map: GoogleMapShared) {
     map.uiSettings.isZoomControlsEnabled = true
@@ -41,18 +49,16 @@ actual fun setupMapUI(map: GoogleMapShared) {
     map.mapType = GoogleMap.MAP_TYPE_TERRAIN
 }
 
-
 @OptIn(ExperimentalPermissionsApi::class)
 actual fun handleLocationPermission(
     map: GoogleMapShared,
     locationPermissionState: PermissionStateShared,
-    fusedLocationProviderClient: FusedLocationProviderClientShared,
     context: ContextShared
 ) {
     when (locationPermissionState.status) {
         PermissionStatus.Granted -> {
             CoroutineScope(Dispatchers.Main).launch {
-                enableMyLocation(map, fusedLocationProviderClient, context)
+                enableMyLocation(map, context)
             }
         }
 
@@ -63,29 +69,23 @@ actual fun handleLocationPermission(
 }
 
 @SuppressLint("MissingPermission")
-private suspend fun enableMyLocation(
+private fun enableMyLocation(
     map: GoogleMapShared,
-    fusedLocationClient: FusedLocationProviderClientShared,
     context: ContextShared
 ) {
     if (ContextCompat.checkSelfPermission(
             context.context, android.Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
     ) {
-        getLastKnownLocation(fusedLocationClient, context)?.let { location: LocationShared ->
-            map.isMyLocationEnabled = true
-            val latLng = LatLng(location.latitude, location.longitude)
-            map.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoomRate))
-        }
+        map.isMyLocationEnabled = true
     }
 }
 
 actual suspend fun findMyLocation(
     map: GoogleMapShared,
-    fusedLocationClient: FusedLocationProviderClientShared,
     context: ContextShared
 ) {
-    getLastKnownLocation(fusedLocationClient, context)?.let { location: Location ->
+    getLastKnownLocation(context)?.let { location: Location ->
         val latLng = LatLng(location.latitude, location.longitude)
         map.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoomRate))
     }
@@ -94,10 +94,11 @@ actual suspend fun findMyLocation(
 @OptIn(ExperimentalCoroutinesApi::class)
 @SuppressLint("MissingPermission")
 actual suspend fun getLastKnownLocation(
-    fusedLocationClient: FusedLocationProviderClientShared,
     context: ContextShared
-): LocationShared? =
-    if (ContextCompat.checkSelfPermission(
+): LocationShared? {
+    val fusedLocationClient: FusedLocationProviderClient =
+        LocationServices.getFusedLocationProviderClient(context.context)
+    return if (ContextCompat.checkSelfPermission(
             context.context, android.Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
     ) {
@@ -108,3 +109,4 @@ actual suspend fun getLastKnownLocation(
                 }
         }
     } else null
+}

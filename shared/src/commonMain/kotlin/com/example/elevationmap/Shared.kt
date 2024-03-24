@@ -2,36 +2,42 @@
 
 package com.example.elevationmap
 
+
 const val zoomRate = 15f
-const val findMe = "Найти меня"
+const val findMe = "На стартовую позицию\n(в Москву)"
 
 data class MapUiSettings(
     val isFindMeButtonClicked: Boolean = false
 )
 
 expect interface PermissionStateShared
-expect interface FusedLocationProviderClientShared
 expect interface ContextShared
 
 expect class LocationShared
 expect class GoogleMapShared
+
+expect fun GoogleMapShared.setCenter(location: LocationShared, animated: Boolean)
+
+enum class PermissionStatus {
+    Granted,
+    Denied,
+    Restricted,
+    Unknown
+}
 
 expect fun setupMapUI(map: GoogleMapShared)
 
 expect fun handleLocationPermission(
     map: GoogleMapShared,
     locationPermissionState: PermissionStateShared,
-    fusedLocationProviderClient: FusedLocationProviderClientShared,
     context: ContextShared
 )
 
 expect suspend fun findMyLocation(
     map: GoogleMapShared,
-    fusedLocationClient: FusedLocationProviderClientShared,
     context: ContextShared
 )
 
 expect suspend fun getLastKnownLocation(
-    fusedLocationClient: FusedLocationProviderClientShared,
     context: ContextShared
 ): LocationShared?
