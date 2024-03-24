@@ -2,13 +2,9 @@
 
 package com.example.elevationmap
 
-import kotlinx.cinterop.BetaInteropApi
-import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.ObjCClass
 import kotlinx.cinterop.cValue
 import kotlinx.coroutines.suspendCancellableCoroutine
-import objcnames.classes.Protocol
 import platform.CoreLocation.CLLocation
 import platform.CoreLocation.CLLocationCoordinate2D
 import platform.CoreLocation.CLLocationManager
@@ -22,9 +18,8 @@ import platform.Foundation.NSError
 import platform.MapKit.MKCoordinateRegionMake
 import platform.MapKit.MKCoordinateSpan
 import platform.MapKit.MKMapView
-import platform.MapKit.MKMapViewDelegateProtocol
 import platform.MapKit.MKUserTrackingModeFollow
-import platform.darwin.NSUInteger
+import platform.darwin.NSObject
 import kotlin.coroutines.resume
 
 actual typealias LocationShared = CLLocation
@@ -46,7 +41,6 @@ actual fun GoogleMapShared.setCenter(location: LocationShared, animated: Boolean
     val region = MKCoordinateRegionMake(coordinate, span)
     mapView.setRegion(region, animated)
 }
-
 
 actual interface PermissionStateShared {
     val status: PermissionStatus
@@ -70,58 +64,7 @@ class PermissionStateSharedImpl(private val locationManager: CLLocationManager) 
 
 actual interface ContextShared
 
-actual interface FusedLocationProviderClientShared : MKMapViewDelegateProtocol {
-    val locationManager: CLLocationManager
-
-    @BetaInteropApi
-    @ExperimentalForeignApi
-    suspend fun getLastLocation(): LocationShared? = suspendCancellableCoroutine { continuation ->
-        val delegate = object : CLLocationManagerDelegateProtocol {
-            override fun locationManager(manager: CLLocationManager, didUpdateLocations: List<*>) {
-                val lastLocation = didUpdateLocations.lastOrNull() as? CLLocation
-                continuation.resume(lastLocation)
-                manager.delegate = null
-            }
-
-            override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {
-                continuation.resume(null)
-                manager.delegate = null
-            }
-
-            override fun description(): String? = null
-
-            override fun hash(): NSUInteger = 0U
-
-            override fun superclass(): ObjCClass? = null
-
-            override fun `class`(): ObjCClass? = null
-
-            override fun conformsToProtocol(aProtocol: Protocol?): Boolean = false
-
-            override fun isEqual(`object`: Any?): Boolean = false
-
-            override fun isKindOfClass(aClass: ObjCClass?): Boolean = false
-
-            override fun isMemberOfClass(aClass: ObjCClass?): Boolean = false
-
-            override fun isProxy(): Boolean = false
-
-            override fun performSelector(aSelector: COpaquePointer?): Any? = null
-
-            override fun performSelector(aSelector: COpaquePointer?, withObject: Any?): Any? = null
-
-            override fun performSelector(aSelector: COpaquePointer?, withObject: Any?, _withObject: Any?): Any? = null
-
-            override fun respondsToSelector(aSelector: COpaquePointer?): Boolean = false
-        }
-
-        locationManager.delegate = delegate
-        locationManager.requestLocation()
-    }
-}
-
 actual fun setupMapUI(map: GoogleMapShared) {
-    // Конфигурация MapKit UI
     map.mapView.showsUserLocation = true
     map.mapView.userTrackingMode = MKUserTrackingModeFollow
 }
@@ -129,13 +72,11 @@ actual fun setupMapUI(map: GoogleMapShared) {
 actual fun handleLocationPermission(
     map: GoogleMapShared,
     locationPermissionState: PermissionStateShared,
-    fusedLocationProviderClient: FusedLocationProviderClientShared,
     context: ContextShared
 ) {
     when (locationPermissionState.status) {
         PermissionStatus.Granted -> {
             map.mapView.showsUserLocation = true
-            fusedLocationProviderClient.locationManager.startUpdatingLocation()
         }
 
         PermissionStatus.Denied, PermissionStatus.Restricted -> {
@@ -148,21 +89,30 @@ actual fun handleLocationPermission(
     }
 }
 
-@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 actual suspend fun findMyLocation(
     map: GoogleMapShared,
-    fusedLocationClient: FusedLocationProviderClientShared,
     context: ContextShared
 ) {
-    fusedLocationClient.getLastLocation()?.let { location ->
+    getLastKnownLocation(context)?.let { location ->
         map.setCenter(location, animated = true)
     }
 }
 
-@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 actual suspend fun getLastKnownLocation(
-    fusedLocationClient: FusedLocationProviderClientShared,
     context: ContextShared
-): LocationShared? {
-    return fusedLocationClient.getLastLocation()
+): LocationShared? = suspendCancellableCoroutine { continuation ->
+    val locationManager = CLLocationManager()
+    locationManager.delegate = object : NSObject(), CLLocationManagerDelegateProtocol {
+        override fun locationManager(manager: CLLocationManager, didUpdateLocations: List<*>) {
+            val lastLocation = didUpdateLocations.lastOrNull() as? CLLocation
+            continuation.resume(lastLocation)
+            manager.delegate = null
+        }
+
+        override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {
+            continuation.resume(null)
+            manager.delegate = null
+        }
+    }
+    locationManager.requestLocation()
 }
