@@ -8,14 +8,14 @@
   "authors": "",
   "license": "",
   "summary": "ElevationMap Shared Module for interacting with Google Maps and Elevation APIs",
-  "vendored_frameworks": "build/cocoapods/framework/ElevationMapShared.framework",
+  "vendored_frameworks": "build/cocoapods/framework/shared.framework",
   "libraries": "c++",
   "platforms": {
     "ios": "13.0"
   },
   "pod_target_xcconfig": {
     "KOTLIN_PROJECT_PATH": ":shared",
-    "PRODUCT_MODULE_NAME": "ElevationMapShared"
+    "PRODUCT_MODULE_NAME": "shared"
   },
   "script_phases": [
     {

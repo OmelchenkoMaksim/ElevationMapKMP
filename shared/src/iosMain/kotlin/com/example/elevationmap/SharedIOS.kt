@@ -2,8 +2,14 @@
 
 package com.example.elevationmap
 
+import com.example.elevationmap.Common.PermissionStatus
+import com.example.elevationmap.Common.PermissionStatus.Denied
+import com.example.elevationmap.Common.PermissionStatus.Granted
+import com.example.elevationmap.Common.PermissionStatus.Restricted
+import com.example.elevationmap.Common.PermissionStatus.Unknown
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.cValue
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.CoreLocation.CLLocation
 import platform.CoreLocation.CLLocationCoordinate2D
@@ -24,14 +30,22 @@ import kotlin.coroutines.resume
 
 actual typealias LocationShared = CLLocation
 
+actual interface ContextShared
+
 actual class GoogleMapShared(val mapView: MKMapView)
 
+actual interface PermissionStateShared {
+    val status: PermissionStatus
+    fun requestPermission()
+}
+
 @OptIn(ExperimentalForeignApi::class)
-actual fun GoogleMapShared.setCenter(location: LocationShared, animated: Boolean) {
-    val coordinate = cValue<CLLocationCoordinate2D> {
-        this.latitude = 55.7558
-        this.longitude = 37.6176
-    }
+fun GoogleMapShared.setCenter(location: LocationShared, animated: Boolean) {
+    val coordinate =
+        cValue<CLLocationCoordinate2D> {
+            this.latitude = 55.7558
+            this.longitude = 37.6176
+        }
 
     val span = cValue<MKCoordinateSpan> {
         this.latitudeDelta = 0.01
@@ -42,27 +56,23 @@ actual fun GoogleMapShared.setCenter(location: LocationShared, animated: Boolean
     mapView.setRegion(region, animated)
 }
 
-actual interface PermissionStateShared {
-    val status: PermissionStatus
-    fun requestPermission()
-}
-
 class PermissionStateSharedImpl(private val locationManager: CLLocationManager) : PermissionStateShared {
     override val status: PermissionStatus
-        get() = when (CLLocationManager.authorizationStatus()) {
-            kCLAuthorizationStatusNotDetermined -> PermissionStatus.Unknown
-            kCLAuthorizationStatusRestricted -> PermissionStatus.Restricted
-            kCLAuthorizationStatusDenied -> PermissionStatus.Denied
-            kCLAuthorizationStatusAuthorizedAlways, kCLAuthorizationStatusAuthorizedWhenInUse -> PermissionStatus.Granted
-            else -> PermissionStatus.Unknown
-        }
+        get() =
+            when (CLLocationManager.authorizationStatus()) {
+                kCLAuthorizationStatusNotDetermined -> Unknown
+                kCLAuthorizationStatusRestricted -> Restricted
+                kCLAuthorizationStatusDenied -> Denied
+                kCLAuthorizationStatusAuthorizedAlways,
+                kCLAuthorizationStatusAuthorizedWhenInUse -> Granted
+
+                else -> Unknown
+            }
 
     override fun requestPermission() {
         locationManager.requestWhenInUseAuthorization()
     }
 }
-
-actual interface ContextShared
 
 actual fun setupMapUI(map: GoogleMapShared) {
     map.mapView.showsUserLocation = true
@@ -75,17 +85,11 @@ actual fun handleLocationPermission(
     context: ContextShared
 ) {
     when (locationPermissionState.status) {
-        PermissionStatus.Granted -> {
-            map.mapView.showsUserLocation = true
-        }
+        Granted -> map.mapView.showsUserLocation = true
 
-        PermissionStatus.Denied, PermissionStatus.Restricted -> {
-            // Обработка отказа в разрешении
-        }
+        Denied, Restricted -> Unit
 
-        PermissionStatus.Unknown -> {
-            locationPermissionState.requestPermission()
-        }
+        Unknown -> locationPermissionState.requestPermission()
     }
 }
 
@@ -93,26 +97,33 @@ actual suspend fun findMyLocation(
     map: GoogleMapShared,
     context: ContextShared
 ) {
-    getLastKnownLocation(context)?.let { location ->
+    getLastKnownLocation(context)?.let { location: LocationShared ->
         map.setCenter(location, animated = true)
     }
 }
 
 actual suspend fun getLastKnownLocation(
     context: ContextShared
-): LocationShared? = suspendCancellableCoroutine { continuation ->
-    val locationManager = CLLocationManager()
-    locationManager.delegate = object : NSObject(), CLLocationManagerDelegateProtocol {
-        override fun locationManager(manager: CLLocationManager, didUpdateLocations: List<*>) {
-            val lastLocation = didUpdateLocations.lastOrNull() as? CLLocation
-            continuation.resume(lastLocation)
-            manager.delegate = null
-        }
+): LocationShared? =
+    suspendCancellableCoroutine { continuation: CancellableContinuation<LocationShared?> ->
+        val locationManager = CLLocationManager()
+        locationManager.delegate =
+            object : NSObject(), CLLocationManagerDelegateProtocol {
+                override fun locationManager(
+                    manager: CLLocationManager, didUpdateLocations: List<*>
+                ) {
+                    val lastLocation =
+                        didUpdateLocations.lastOrNull() as? CLLocation
+                    continuation.resume(lastLocation)
+                    manager.delegate = null
+                }
 
-        override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {
-            continuation.resume(null)
-            manager.delegate = null
-        }
+                override fun locationManager(
+                    manager: CLLocationManager, didFailWithError: NSError
+                ) {
+                    continuation.resume(null)
+                    manager.delegate = null
+                }
+            }
+        locationManager.requestLocation()
     }
-    locationManager.requestLocation()
-}

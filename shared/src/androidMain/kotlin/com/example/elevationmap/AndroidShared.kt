@@ -7,6 +7,7 @@ import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.location.Location
 import androidx.core.content.ContextCompat
+import com.example.elevationmap.Common.ZOOM_RATE
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionStatus
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -22,9 +23,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 
-
-val moscowLatLng = LatLng(55.7558, 37.6176)
-
 @OptIn(ExperimentalPermissionsApi::class)
 actual interface PermissionStateShared : com.google.accompanist.permissions.PermissionState
 actual interface ContextShared {
@@ -34,18 +32,10 @@ actual interface ContextShared {
 actual typealias LocationShared = Location
 actual typealias GoogleMapShared = GoogleMap
 
-actual fun GoogleMapShared.setCenter(location: LocationShared, animated: Boolean) {
-    val latLng = LatLng(location.latitude, location.longitude)
-    if (animated) {
-        this.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoomRate))
-    } else {
-        this.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoomRate))
-    }
-}
-
 actual fun setupMapUI(map: GoogleMapShared) {
+    val moscowLatLng = LatLng(55.7558, 37.6176)
     map.uiSettings.isZoomControlsEnabled = true
-    map.moveCamera(CameraUpdateFactory.newLatLngZoom(moscowLatLng, zoomRate))
+    map.moveCamera(CameraUpdateFactory.newLatLngZoom(moscowLatLng, ZOOM_RATE))
     map.mapType = GoogleMap.MAP_TYPE_TERRAIN
 }
 
@@ -56,15 +46,13 @@ actual fun handleLocationPermission(
     context: ContextShared
 ) {
     when (locationPermissionState.status) {
-        PermissionStatus.Granted -> {
-            CoroutineScope(Dispatchers.Main).launch {
-                enableMyLocation(map, context)
-            }
-        }
+        PermissionStatus.Granted ->
+            CoroutineScope(Dispatchers.Main)
+                .launch { enableMyLocation(map, context) }
 
-        is PermissionStatus.Denied -> {
+        is PermissionStatus.Denied ->
             locationPermissionState.launchPermissionRequest()
-        }
+
     }
 }
 
@@ -87,7 +75,7 @@ actual suspend fun findMyLocation(
 ) {
     getLastKnownLocation(context)?.let { location: Location ->
         val latLng = LatLng(location.latitude, location.longitude)
-        map.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, zoomRate))
+        map.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, ZOOM_RATE))
     }
 }
 

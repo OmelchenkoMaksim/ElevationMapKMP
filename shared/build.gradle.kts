@@ -2,7 +2,6 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.kotlinCocoapods)
     alias(libs.plugins.androidLibrary)
-    id("kotlin-parcelize")
 }
 
 kotlin {
@@ -27,7 +26,7 @@ kotlin {
     val iosTargets = onPhone + onSimulator
     iosTargets.forEach { target ->
         target.binaries.framework {
-            baseName = "ElevationMapShared"
+            baseName = "shared"
         }
     }
     cocoapods {
@@ -37,7 +36,7 @@ kotlin {
         ios.deploymentTarget = "13.0"
         podfile = project.file("../iosApp/Podfile")
         framework {
-            baseName = "ElevationMapShared"
+            baseName = "shared"
             isStatic = true
         }
     }
