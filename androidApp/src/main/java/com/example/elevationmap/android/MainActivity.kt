@@ -32,8 +32,8 @@ import androidx.lifecycle.Lifecycle.Event.ON_RESUME
 import androidx.lifecycle.Lifecycle.Event.ON_START
 import androidx.lifecycle.Lifecycle.Event.ON_STOP
 import androidx.lifecycle.LifecycleEventObserver
-import com.example.elevationmap.Common.MapUiSettings
 import com.example.elevationmap.Common.FIND_ME
+import com.example.elevationmap.Common.MapUiSettings
 import com.example.elevationmap.Common.ZOOM_RATE
 import com.example.elevationmap.ContextShared
 import com.example.elevationmap.PermissionStateShared
@@ -67,6 +67,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * Основной экран приложения, содержащий компоненты пользовательского интерфейса
+ * Использует `MapViewContainer` для интеграции Google Map и `Button` для запуска поиска
+ * местоположения пользователя
+ */
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun MapScreen() {
@@ -101,6 +106,11 @@ fun MapScreen() {
     }
 }
 
+/**
+ * Контейнер для `MapView`, обеспечивает интеграцию между Composable функциями и `MapView`.
+ * Отвечает за инициализацию и обновление состояния карты. Использует `rememberCoroutineScope`
+ * для работы с корутинами и асинхронным кодом
+ */
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 private fun MapViewContainer(
@@ -131,6 +141,10 @@ private fun MapViewContainer(
     }
 }
 
+/**
+ * Инициализирует Google Map и устанавливает начальные параметры, такие как тип карты,
+ * начальное местоположение и состояние разрешений.
+ */
 @OptIn(ExperimentalPermissionsApi::class)
 private fun initializeMap(
     mapView: MapView,
@@ -193,18 +207,23 @@ fun rememberMapViewWithLifecycle(): MapView {
 fun rememberMapLifecycleObserver(mapView: MapView): LifecycleEventObserver =
     remember(mapView) {
         LifecycleEventObserver { _, event ->
-            when (event) {
-                ON_CREATE -> mapView.onCreate(Bundle())
-                ON_START -> mapView.onStart()
-                ON_RESUME -> mapView.onResume()
-                ON_PAUSE -> mapView.onPause()
-                ON_STOP -> mapView.onStop()
-                ON_DESTROY -> mapView.onDestroy()
-                else -> throw IllegalStateException()
+            with(mapView) {
+                when (event) {
+                    ON_CREATE -> onCreate(Bundle())
+                    ON_START -> onStart()
+                    ON_RESUME -> onResume()
+                    ON_PAUSE -> onPause()
+                    ON_STOP -> onStop()
+                    ON_DESTROY -> onDestroy()
+                    else -> throw IllegalStateException()
+                }
             }
         }
     }
 
+/**
+ * Адаптеры обеспечивают соответствие между Android и общими интерфейсами KMM
+ */
 @OptIn(ExperimentalPermissionsApi::class)
 class PermissionStateSharedAdapter(
     private val permissionState: PermissionState

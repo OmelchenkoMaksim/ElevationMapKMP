@@ -32,6 +32,10 @@ actual interface ContextShared {
 actual typealias LocationShared = Location
 actual typealias GoogleMapShared = GoogleMap
 
+/**
+ * Настраивает пользовательский интерфейс карты
+ * Устанавливает стартовую позицию камеры на Москву и включает элементы управления зумом
+ */
 actual fun setupMapUI(map: GoogleMapShared) {
     val moscowLatLng = LatLng(55.7558, 37.6176)
     map.uiSettings.isZoomControlsEnabled = true
@@ -39,6 +43,10 @@ actual fun setupMapUI(map: GoogleMapShared) {
     map.mapType = GoogleMap.MAP_TYPE_TERRAIN
 }
 
+/**
+ * Если разрешение предоставлено, включает отображение местоположения пользователя
+ * Если разрешение отклонено, запрашивает разрешение у пользователя.
+ */
 @OptIn(ExperimentalPermissionsApi::class)
 actual fun handleLocationPermission(
     map: GoogleMapShared,
@@ -56,6 +64,9 @@ actual fun handleLocationPermission(
     }
 }
 
+/**
+ * Включает отображение местоположения пользователя на карте GoogleMap
+ */
 @SuppressLint("MissingPermission")
 private fun enableMyLocation(
     map: GoogleMapShared,
@@ -69,6 +80,9 @@ private fun enableMyLocation(
     }
 }
 
+/**
+ * Определяет и плавно перемещает камеру карты к последнему известному местоположению пользователя
+ */
 actual suspend fun findMyLocation(
     map: GoogleMapShared,
     context: ContextShared
@@ -79,6 +93,9 @@ actual suspend fun findMyLocation(
     }
 }
 
+/**
+ * Получает последнее известное местоположение пользователя с использованием FusedLocationProviderClient
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 @SuppressLint("MissingPermission")
 actual suspend fun getLastKnownLocation(
