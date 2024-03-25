@@ -211,4 +211,3 @@ class PermissionStateSharedAdapter(
 ) : PermissionStateShared, PermissionState by permissionState
 
 class ContextSharedAdapter(override val context: Context) : ContextShared
-
